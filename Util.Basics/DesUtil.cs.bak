@@ -1,0 +1,172 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Security.Cryptography;
+
+namespace Reformer.Utils
+{
+    /// <summary>
+    /// DES加解密
+    /// Add by 成长的小猪（Jason.Song） on 2017/11/20
+    /// http://blog.csdn.net/jasonsong2008
+    /// 
+    /// DES是对称性加密里面常见一种，全称为Data Encryption Standard，即数据加密标准，
+    /// 是一种使用密钥加密的块算法。密钥长度是64位(bit)，超过位数密钥被忽略。
+    /// 所谓对称性加密，加密和解密密钥相同。对称性加密一般会按照固定长度，把待加密字符串分成块。
+    /// 不足一整块或者刚好最后有特殊填充字符。往往跨语言做DES加密解密，经常会出现问题。
+    /// 往往是填充方式不对、或者编码不一致、或者选择加密解密模式(ECB,CBC,CTR,OFB,CFB,NCFB,NOFB)没有对应上造成。
+    /// 常见的填充模式有： 'pkcs5','pkcs7','iso10126','ansix923','zero' 类型，
+    /// 包括DES-ECB,DES-CBC,DES-CTR,DES-OFB,DES-CFB。 
+    /// </summary>
+    public static class DesUtil
+    {
+        #region DES 加密
+
+        /// <summary>
+        /// 加密（Hex）
+        /// </summary>
+        /// <param name="encryptString">待加密的字符串</param>
+        /// <param name="encryptKey">加密密钥(8位任意字符)</param>
+        /// <param name="encoding">字符编码</param>
+        /// <param name="cipher">运算模式</param>
+        /// <param name="padding">填充模式</param>
+        /// <returns></returns>
+        public static string EncryptToHexString(string encryptString, string encryptKey, string encryptIV, Encoding encoding,
+            CipherMode cipher = CipherMode.ECB, PaddingMode padding = PaddingMode.Zeros)
+        {
+            //为了安全级别更高，这个地方建议将密钥进行MD5后取8位，这里我就不加此方法啦
+            //var keyBytes = encoding.GetBytes(Md5Helper.GetMd5HashString(encryptKey, encoding).Substring(0, 8));
+            var keyBytes = encoding.GetBytes(encryptKey);
+            var ivBytes = encoding.GetBytes(encryptIV);
+            var inputBytes = encoding.GetBytes(encryptString);
+            var outputBytes = EncryptToDesBytes(inputBytes, keyBytes,ivBytes, cipher, padding);
+            var sBuilder = new StringBuilder();
+            foreach (var b in outputBytes)
+            {
+                sBuilder.Append(b.ToString("X2"));
+            }
+            return sBuilder.ToString();
+        }
+
+        /// <summary>
+        /// 加密（Base64）
+        /// </summary>
+        /// <param name="encryptString">待加密的字符串</param>
+        /// <param name="encryptKey">加密密钥(8位任意字符)</param>
+        /// <param name="encoding">字符编码</param>
+        /// <param name="cipher">运算模式</param>
+        /// <param name="padding">填充模式</param>
+        /// <returns></returns>
+        public static string EncryptToBase64String(string encryptString, string encryptKey, string encryptIV, Encoding encoding,
+            CipherMode cipher = CipherMode.ECB, PaddingMode padding = PaddingMode.Zeros)
+        {
+            //为了安全级别更高，这个地方建议将密钥进行MD5后取8位，这里我就不加此方法啦
+            //var keyBytes = encoding.GetBytes(Md5Helper.GetMd5HashString(encryptKey, encoding).Substring(0, 8));
+            var keyBytes = encoding.GetBytes(encryptKey);
+            var ivBytes = encoding.GetBytes(encryptIV);
+            var inputBytes = encoding.GetBytes(encryptString);
+            var outputBytes = EncryptToDesBytes(inputBytes, keyBytes, ivBytes, cipher, padding);
+            return Convert.ToBase64String(outputBytes);
+        }
+
+        /// <summary>
+        /// 加密
+        /// </summary>
+        /// <param name="encryptBytes">待加密的字节数组</param>
+        /// <param name="keyBytes">加密密钥字节数组</param>
+        /// <param name="cipher">运算模式</param>
+        /// <param name="padding">填充模式</param>
+        /// <returns></returns>
+        public static byte[] EncryptToDesBytes(byte[] encryptBytes, byte[] keyBytes, byte[] ivBytes,
+            CipherMode cipher = CipherMode.ECB, PaddingMode padding = PaddingMode.Zeros)
+        {
+            var des = new DESCryptoServiceProvider
+            {
+                Key = keyBytes,
+                IV = ivBytes,
+                Mode = cipher,
+                Padding = padding
+            };
+            var outputBytes = des.CreateEncryptor().TransformFinalBlock(encryptBytes, 0, encryptBytes.Length);
+            return outputBytes;
+        }
+
+        #endregion
+
+        #region DES 解密
+
+        /// <summary>
+        /// 解密（Hex）
+        /// </summary>
+        /// <param name="decryptString">待解密的字符串</param>
+        /// <param name="decryptKey">解密密钥(8位任意字符)</param>
+        /// <param name="encoding">字符编码</param>
+        /// <param name="cipher">运算模式</param>
+        /// <param name="padding">填充模式</param>
+        /// <returns></returns>
+        public static string DecryptByHexString(string decryptString, string decryptKey, string decryptIV, Encoding encoding,
+            CipherMode cipher = CipherMode.ECB, PaddingMode padding = PaddingMode.Zeros)
+        {
+            //为了安全级别更高，这个地方建议将密钥进行MD5后取8位，这里我就不加此方法啦
+            //var keyBytes = encoding.GetBytes(Md5Helper.GetMd5HashString(encryptKey, encoding).Substring(0, 8));
+            var keyBytes = encoding.GetBytes(decryptKey);
+            var ivBytes = encoding.GetBytes(decryptIV);
+            var inputBytes = new byte[decryptString.Length / 2];
+            for (var i = 0; i < inputBytes.Length; i++)
+            {
+                inputBytes[i] = Convert.ToByte(decryptString.Substring(i * 2, 2), 16);
+            }
+            var outputBytes = DecryptByDesBytes(inputBytes, keyBytes, ivBytes, cipher, padding);
+            return encoding.GetString(outputBytes).TrimEnd('\0');
+        }
+
+        /// <summary>
+        /// 解密（Base64）
+        /// </summary>
+        /// <param name="decryptString">待解密的字符串</param>
+        /// <param name="decryptKey">解密密钥(8位任意字符)</param>
+        /// <param name="encoding">字符编码</param>
+        /// <param name="cipher">运算模式</param>
+        /// <param name="padding">填充模式</param>
+        /// <returns></returns>
+        public static string DecryptByBase64String(string decryptString, string decryptKey, string decryptIV, Encoding encoding,
+            CipherMode cipher = CipherMode.ECB, PaddingMode padding = PaddingMode.Zeros)
+        {
+            //为了安全级别更高，这个地方建议将密钥进行MD5后取8位，这里我就不加此方法啦
+            //var keyBytes = encoding.GetBytes(Md5Helper.GetMd5HashString(encryptKey, encoding).Substring(0, 8));
+            var keyBytes = encoding.GetBytes(decryptKey);
+            var ivBytes = encoding.GetBytes(decryptIV);
+            var inputBytes = Convert.FromBase64String(decryptString);
+            var outputBytes = DecryptByDesBytes(inputBytes, keyBytes, ivBytes, cipher, padding);
+            return encoding.GetString(outputBytes).TrimEnd('\0');
+        }
+
+        /// <summary>
+        /// 解密
+        /// </summary>
+        /// <param name="decryptBytes">待解密的字节数组</param>
+        /// <param name="keyBytes">解密密钥字节数组</param>
+        /// <param name="cipher">运算模式</param>
+        /// <param name="padding">填充模式</param>
+        /// <returns></returns>
+        public static byte[] DecryptByDesBytes(byte[] decryptBytes, byte[] keyBytes, byte[] ivBytes,
+            CipherMode cipher = CipherMode.ECB, PaddingMode padding = PaddingMode.Zeros)
+        {
+            var des = new DESCryptoServiceProvider
+            {
+                Key = keyBytes,
+                IV = ivBytes,
+                Mode = cipher,
+                Padding = padding
+            };
+            var outputBytes = des.CreateDecryptor().TransformFinalBlock(decryptBytes, 0, decryptBytes.Length);
+            return outputBytes;
+        }
+
+        #endregion
+
+
+    }
+
+}
